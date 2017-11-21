@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 N = 20
 
-def backtest_baseline(pairs, T): 
+def backtest_baseline(pairs, T, P): 
     in_trade = False
     profit = 0
     trade_start=0
@@ -16,43 +16,47 @@ def backtest_baseline(pairs, T):
         counter+=1
         A = list(T[pair[0]])
         B = list(T[pair[1]]) 
-        spread = np.absolute(np.array(A) - np.array(B))
-        threshold = 2*np.std(spread)
+
+        #calculate threshold based on past data
+        spread = np.absolute(np.array(P[pair[0]]) - np.array(P[pair[1]]))
+        cur_spread = np.absolute(np.array(A) - np.array(B))
+        threshold = np.mean(spread) + 2*np.std(spread)
         i = 0
-        while(i < len(spread)):
-            #enter trade
-            if spread[i] >= threshold: 
+        while(i < len(A)):
+            #if spread is big, enter trade
+            if cur_spread[i] >= threshold: 
                 
-                print("{}-{}, entered trade at {}, spread: {}".format(pair[0], pair[1], i, spread[i]))
+                print("{}-{}, entered trade at {}, spread: {}".format(pair[0], pair[1], i, cur_spread[i]))
                 trade_start = i
                 in_trade = True
 
                 if A[i] > B[i]: 
                     #stay in trade until cross
-                    while(i < len(spread) and A[i] > B[i]): 
+                    while(i < len(A) and A[i] > B[i]): 
                         i+=1
                     i-=1 
-                    if i == len(spread)-1 and A[i] > B[i]: 
+                    if i == len(A)-1 and A[i] > B[i]: 
                         break
                     profit += A[trade_start] - B[trade_start]
                     in_trade = False
 
                 elif B[i] >= A[i]: 
-                    while(i < len(spread) and B[i] > A[i]): 
+                    #stay in trade until cross
+                    while(i < len(A) and B[i] > A[i]): 
                         i+=1 
                     i-=1
-                    if i == len(spread)-1 and B[i] > A[i]: 
+                    if i == len(A)-1 and B[i] > A[i]: 
                         break
                     profit += B[trade_start] - A[trade_start]
                     in_trade = False
                 print("exit: {}".format(i+1))
             i+=1
         
-        #if in trade then we just exit
+        #if in trade then we just exit position and cut losses
         if in_trade: 
             print("loss!")
-            profit += -A[len(spread)-1] + A[trade_start]
-            profit += B[len(spread)-1] - B[trade_start] 
+            profit += -A[len(A)-1] + A[trade_start]
+            profit += B[len(A)-1] - B[trade_start] 
     return profit
 
 
@@ -101,8 +105,8 @@ def normalize_prices(df):
 if __name__ == "__main__": 
     SnP = pandas.read_csv("/Users/borauyumazturk/CS229/borasco/data/SP500_90day_ts.csv")
     SnP = normalize_prices(SnP)
-    test = SnP[30:]
-    SnP = SnP[0:30]
+    test = SnP[35:]
+    SnP = SnP[0:35]
     stocks, scores = similarities(SnP)
     pairs = top_n(scores, N)
     pairs = [(stocks[x[0]], stocks[x[1]], x[2]) for x in pairs]
@@ -110,12 +114,12 @@ if __name__ == "__main__":
     #some info
     for x in pairs: 
         print("{} and {}: {}".format(x[0], x[1], x[2]))
-    pair1 = pairs[6]
+    pair1 = pairs[5]
     plot_ts([SnP[pair1[0]], SnP[pair1[1]]], [pair1[0], pair1[1]], "Sample Pair_train", "sample_pair_train.png")
     plot_ts([test[pair1[0]], test[pair1[1]]], [pair1[0], pair1[1]], "Sample Pair_test", "sample_pair_test.png")
 
 
-    profit = backtest_baseline(pairs, test)
+    profit = backtest_baseline(pairs, test, SnP)
     print(profit)
     
 
