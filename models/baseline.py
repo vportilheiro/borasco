@@ -9,11 +9,11 @@ from random import choice
 N = 20
 
 def sample_for_regression(spread, N): 
-    X = np.zeros((30, 1))
+    X = np.zeros((N, 2))
     Y = np.zeros(N)
     for i in range(N): 
         j = choice(range(1, len(spread)))
-        X[i] = [spread[j] - spread[j-1]]
+        X[i] = [spread[j], spread[j] - spread[j-1]]
         length = 0
         for k in range(j, len(spread)): 
             if spread[j]*spread[k] < 0:
@@ -41,9 +41,15 @@ def backtest_linear(pairs, T, P):
         B_train = np.array(P[pair[1]])
         B_train = B_train/B_train[0]
         signed_spread = A_train - B_train
-        X, Y = sample_for_regression(signed_spread, 30)
+        X, Y = sample_for_regression(signed_spread, 20)
         reg = LinearRegression()
         reg.fit(X, Y)
+        print("R^2 score for {} and {}: {}".format(pair[0], pair[1], reg.score(X, Y)))
+        #if counter == 6:
+        #    plt.figure()
+        #    plt.plot(range(len(signed_spread)), signed_spread)
+        #    plt.title("{} and {}".format(pair[0], pair[1]))
+        #    plt.savefig("lin_regress.png")
 
 
         #calculate threshold based on past data
@@ -54,7 +60,7 @@ def backtest_linear(pairs, T, P):
         i = 1
         while(i < len(A)):
             #if spread is big, enter trade
-            if cur_spread[i] >= threshold and reg.predict([[signed_spread[i] - signed_spread[i-1]]]) < 7: 
+            if cur_spread[i] >= threshold and reg.predict([[signed_spread[i], signed_spread[i] - signed_spread[i-1]]]) < 12: 
                 
                 print("{}-{}, entered trade at {}, spread: {}".format(pair[0], pair[1], i, cur_spread[i]))
                 trade_start = i
