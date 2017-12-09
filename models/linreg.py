@@ -7,19 +7,22 @@ class LinReg:
         self.devData = devData.T
 
     def get_variance(self, X, y, c, phi):
-        x = X[:,1:]
+        x = X[:,1]
         v = phi*x + c
-        return (y - v).dot(y- v) / v.size
+        w = y - v
+        result = np.inner(w, w)
+        result = result/v.size
+        return result
         
     def get_AR1_params(self):
-        train = self.trainData
         c_phi_list = []
         pair_list = []
         var_list = []
-        for i in range(train.shape[0]-1):
-            for j in range(i+1, train.shape[0]):
-                a_ts = train[i]/train[i,0]
-                b_ts = train[j]/train[j,0]
+        for i in range(self.trainData.shape[0]-1):
+            for j in range(i+1, self.trainData.shape[0]):
+                #print("pair: {}".format((i, j)))
+                a_ts = self.trainData[i]/self.trainData[i,0]
+                b_ts = self.trainData[j]/self.trainData[j,0]
 
                 # Build design matrix X based based on spread over time,
                 # not including last spread
@@ -36,10 +39,14 @@ class LinReg:
                 c, phi = theta[0], theta[1]
 
                 variance = self.get_variance(X, y, c, phi)
-
-                c_phi_list += [ [c, phi] ]
-                pair_list += [ [i, j] ]
-                var_list += [ [variance] ]
+                if(np.absolute(phi) < 0.8):     
+                    c_phi_list += [ [c, phi] ]
+                    pair_list += [ [i, j] ]
+                    var_list += [ [variance] ]
+                del theta 
+                del a_ts
+                del b_ts
+                del y
         return np.array(c_phi_list), np.array(pair_list), np.array(var_list)
 
 
