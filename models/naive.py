@@ -42,24 +42,20 @@ class NaiveModel:
         while(i < len(a_ts)): 
             #print("timestep: {}".format(i/len(a_ts)))
             if np.absolute(a_ts[i] - b_ts[i]) >= threshold:
-                clean_exit = True 
                 trade_start = i
 
                 if a_ts[i] > b_ts[i]: 
                     while (i < len(a_ts) and a_ts[i] > b_ts[i]): 
                         i += 1
-                    i-=1
-                    if i == len(a_ts) - 1 and a_ts[i] > b_ts[i]: 
-                        clean_exit = False
-
                 elif a_ts[i] < b_ts[i]: 
                     while (i < len(a_ts) and a_ts[i] < b_ts[i]): 
                         i += 1
-                    i-=1
-                    if i == len(a_ts) - 1 and a_ts[i] < b_ts[i]: 
-                        clean_exit = False
 
-                trades.append((trade_start, i, clean_exit))
+                if a_ts[trade_start] > b_ts[trade_start]:
+                    trades.append((trade_start, i, -1/X[0,a], 1/X[0,b]))
+                else:
+                    trades.append((trade_start, i, 1/X[0,a], -1/X[0,b]))
+                i-=1
             i += 1
         return trades 
     
