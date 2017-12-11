@@ -65,12 +65,11 @@ class LinReg:
             return self.devData[a]/self.trainData[a,0]-self.devData[b]/self.trainData[b,0]
         return self.trainData[a]/self.trainData[a,0]-self.trainData[b]/self.trainData[b,0]
 
-    def get_pairs(self): 
+    def get_pairs(self, phi_threshold = 0.9): 
         c_phi_matrix, pair_matrix, var_matrix = self.get_AR1_params()
         phi_norms = [np.linalg.norm(x[1:]) for x in c_phi_matrix]
         ##phi_mask = np.argsort(c_phi_matrix[:,1])[:20]
         phi_mask = np.argsort(phi_norms)[:20]
-
 
         self.c_phi_matrix = c_phi_matrix[phi_mask]
         pair_matrix = pair_matrix[phi_mask]
@@ -114,7 +113,7 @@ class LinReg:
         return num_reverted/num_simulations
 
 
-    def get_pair_trades(self, train, dev, pair, revert_threshold=0.5, grow_threshold=.5): 
+    def get_pair_trades(self, train, dev, pair, revert_threshold=0.5, grow_threshold=2): 
         trades = []
         time_horizon = dev.shape[1]
         spread = self.get_spread(pair[0], pair[1], dev=True)
