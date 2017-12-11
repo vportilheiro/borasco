@@ -3,13 +3,15 @@ from scipy.stats import norm
 
 class LinReg:
 
-    def __init__(self, trainData, devData): 
+    def __init__(self, trainData, devData, order): 
         self.trainData = trainData.T
         self.devData = devData.T
+        self.p = order 
 
-    def get_variance(self, X, y, c, phi):
-        x = X[:,1]
-        v = phi*x + c
+    def get_variance(self, X, y, c, phis):
+        x = X[:,1:]
+        v = x.dot(phis) 
+        #v = phis.dot(x) + c
         w = y - v
         result = np.inner(w, w)
         result = result/v.size
@@ -28,25 +30,34 @@ class LinReg:
                 # Build design matrix X based based on spread over time,
                 # not including last spread
                 spread = a_ts - b_ts
-                X = np.ones((spread.size-1,2))
-                X[:,1] = spread[:-1]
+                X = np.ones((spread.size-self.p, self.p+1))
+                (m, n) = X.shape
+                #print((m, n))
+
+                #X[:,1] = spread[:-1]
+                for k in range(1, self.p+1): 
+                    lagged = spread[k-1:]
+                    X[:, k] = lagged[:len(X)] 
+
 
                 # Label vector, based on spread over time, not including
                 # first spread
-                y = spread[1:]
+                y = spread[self.p:]
 
                 # Learn parameter theta by normal equation
                 theta = np.linalg.inv((X.T).dot(X)).dot(X.T).dot(y)
-                c, phi = theta[0], theta[1]
+                c, phi = theta[0], theta[1:]
 
                 variance = self.get_variance(X, y, c, phi)
-                c_phi_list += [ [c, phi] ]
+                #print(c, phi)
+                c_phi_list += [ np.concatenate(([c], phi)) ]
                 pair_list += [ [i, j] ]
                 var_list += [ [variance] ]
                 del theta 
                 del a_ts
                 del b_ts
                 del y
+        print(np.array(c_phi_list))
         return np.array(c_phi_list), np.array(pair_list), np.array(var_list)
 
     def get_spread(self, a, b, dev=False):
@@ -56,7 +67,10 @@ class LinReg:
 
     def get_pairs(self): 
         c_phi_matrix, pair_matrix, var_matrix = self.get_AR1_params()
-        phi_mask = np.argsort(c_phi_matrix[:,1])[:20]
+        phi_norms = [np.linalg.norm(x[1:]) for x in c_phi_matrix]
+        ##phi_mask = np.argsort(c_phi_matrix[:,1])[:20]
+        phi_mask = np.argsort(phi_norms)[:20]
+
 
         self.c_phi_matrix = c_phi_matrix[phi_mask]
         pair_matrix = pair_matrix[phi_mask]
@@ -71,33 +85,36 @@ class LinReg:
         for pair in pairs: 
             print("computing pair: {}".format(pair))
             pair2trades[tuple(pair)] = self.get_pair_trades(self.trainData, self.devData, pair) 
+        print("finished get_trades")
         return pair2trades
 
     # Default to 5000 Monte-Carlo simulations, experimentally shown to be accurate to 1%.
-    def get_convergence_prob(self, pair, spread, time_limit, num_simulations=5000):
+    def get_convergence_prob(self, pair, spreads, time_limit, num_simulations=2500):
         idx = self.pair_to_idx[tuple(pair)]
-        c, phi = self.c_phi_matrix[idx]
+        theta = self.c_phi_matrix[idx]
+        c = theta[0]
+        phis = theta[1:]
         std_dev = np.sqrt(self.var_matrix[idx])
-        mean = c/(1-phi)
+        mean = c/(1-np.sum(phis))
         
         # Run Monte-Carlo simulations to approximate
         # probability of reversion to mean in time_limit steps
         num_reverted = 0
-        x_0 = spread
+        x_0 = spreads
         for i in range(num_simulations):
             last_spread = x_0
-            spread = x_0
-            for t in range(time_limit):
-                if spread <= mean <= last_spread or last_spread <= mean <= spread:
+            spread = x_0[-1]
+            for t in range(1, time_limit):
+                noise = np.random.normal(loc=0, scale=std_dev)[0]
+                spread = c + np.inner(phis, last_spread) + noise 
+                if spread <= mean <= last_spread[-1] or last_spread[-1] <= mean <= spread:
                     num_reverted += 1
                     break
-                noise = np.random.normal(loc=0, scale=std_dev)[0]
-                last_spread = spread
-                spread = c + phi*last_spread + noise
+                last_spread = np.concatenate((last_spread[1:], [spread]))
         return num_reverted/num_simulations
 
 
-    def get_pair_trades(self, train, dev, pair, revert_threshold=0.5, grow_threshold=0.5): 
+    def get_pair_trades(self, train, dev, pair, revert_threshold=0.5, grow_threshold=.5): 
         trades = []
         time_horizon = dev.shape[1]
         spread = self.get_spread(pair[0], pair[1], dev=True)
@@ -110,14 +127,17 @@ class LinReg:
 
         # Get model mean
         idx = self.pair_to_idx[tuple(pair)]
-        c, phi = self.c_phi_matrix[idx]
+        theta = self.c_phi_matrix[idx]
+        c = theta[0]
+        phis = theta[1:]
+        #c, phi = self.c_phi_matrix[idx]
         std_dev = np.sqrt(self.var_matrix[idx])
-        mean = c/(1-phi)
+        mean = c/(1-np.sum(phis))
 
-        for t in range(1, time_horizon):
+        for t in range(self.p, time_horizon):
             if not in_trade:
-                revert_prob = self.get_convergence_prob(pair, spread[t], time_horizon-t)
-                grow_prob = norm.cdf((spread[t-1]-c-phi*spread[t-1])/std_dev)
+                revert_prob = self.get_convergence_prob(pair, spread[t-self.p:t], time_horizon-t)
+                grow_prob = norm.cdf((spread[t]-c-np.inner(phis, spread[t-self.p:t]))/std_dev)
                 if spread[t] > mean:
                     grow_prob = 1 - grow_prob
                 if revert_prob > revert_threshold and grow_prob < grow_threshold:
