@@ -39,7 +39,10 @@ def profit(testData, pairs2trades, pairs):
 
         total_profit += pair_profit 
         total_cost += pair_cost
-        pair_roi.append(pair_profit/pair_cost)
+        if(pair_cost != 0): 
+            pair_roi.append(pair_profit/pair_cost)
+        else: 
+            pair_roi.append(-1)
     return total_profit, total_profit/total_cost, pair_roi
              
 def visuals(M, pair, pairs2trades): 
@@ -56,13 +59,16 @@ def visuals(M, pair, pairs2trades):
     
 
 
-def test(data, frac_train, model):   
+def test(data, frac_train, model, verify, *args):   
     #split data
     (m, n) = data.shape
     train_rows = int(np.around(frac_train * m))
     train_data = data[0:train_rows]
     dev_data = data[train_rows:]
-    M = model(train_data, dev_data)
+    if verify:    
+        M = model(train_data, train_data, *args)
+    else: 
+        M = model(train_data, dev_data, *args)
     pairs = M.get_pairs()
     pairs2trades = M.get_trades(pairs)
     score = profit(data, pairs2trades, pairs)
