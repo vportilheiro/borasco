@@ -23,7 +23,7 @@ class NaiveModel:
         pair2trades = {}
         for pair in pairs: 
             print("computing pair: {}".format(pair))
-            pair2trades[pair] = self.get_pair_trades(self.trainData, self.devData, pair) 
+            pair2trades[tuple(pair)] = self.get_pair_trades(self.trainData, self.devData, pair) 
         return pair2trades
 
     def get_pair_trades(self, X, Y, pair): 
