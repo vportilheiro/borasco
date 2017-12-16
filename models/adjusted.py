@@ -163,7 +163,7 @@ class AdjustedMean:
                     c = window_mean * (1 - np.sum(phis))
                     theta[0] = c
                     mean = c/(1-np.sum(phis))
-                    print("Shifted mean")
+                    print("Shifted mean to {} at time {}".format(mean, t))
                     mean_moving = False
                 revert_prob, exp_rev_time = self.get_convergence_prob(theta, \
                         std_dev, spread[t-self.p:t], time_horizon-t)
